@@ -106,6 +106,7 @@ def get_still_frames(video_path, threshold=3, similarity_threshold=10):
     cap.release()
     return still_frames
 
+
 def main():
     video_path = 'Videos/video1.mov'
     still_frames = get_still_frames(video_path)

@@ -4,7 +4,53 @@ import numpy as np
 # Ask marlon if he wants a still frame each time a shape is introduced or once all the shapes are introduced before taking them out
 # Set high threshold and compare each still frame with the previous one to see if there was an actual change of there was movement in the video
 
-def get_still_frames(video_path, threshold=0.8):
+# def get_still_frames(video_path, threshold=0.8):
+#     """
+#     Extracts still frames from a video based on the similarity between consecutive frames.
+#     :param video_path: Path to the video file.
+#     :param threshold: Difference threshold to consider a frame as still. Lower values mean more similarity is required.
+#     :param still_frames: A list of still frames (as numpy arrays).
+#     """
+#     cap = cv.VideoCapture(video_path)
+#     prev_blurred_frame = None
+#     still_frames = []
+#     consecutive_stills = []
+#     while True:
+#         ret, frame = cap.read()
+#         if not ret:
+#             break
+#         blurred_frame = cv.GaussianBlur(frame, (15, 15), cv.BORDER_DEFAULT)
+#         # cv.imshow('Current frame', frame)
+#         if prev_blurred_frame is not None:
+#             frame_diff = cv.absdiff(prev_blurred_frame, blurred_frame)
+#             frame_diff_score = np.mean(frame_diff)
+#             print(frame_diff_score)
+#             if frame_diff_score < threshold:
+#                 consecutive_stills.append(frame)
+#                 print("Frame added to consecutive stills")
+#             else:
+#                 if len(consecutive_stills) > 1:
+#                     middle_frame = consecutive_stills[len(consecutive_stills) // 2]
+#                     blurred_middle_frame = cv.GaussianBlur(middle_frame, (15, 15), cv.BORDER_DEFAULT)
+#                     append = True
+#                     for i in range(1, min(len(still_frames), 5)):
+#                         if still_frames and not (np.mean(cv.absdiff(cv.GaussianBlur(still_frames[-i], (5, 5), cv.BORDER_DEFAULT), blurred_middle_frame)) >= threshold):
+#                             append = False
+#                     if append:
+#                         print("New still frame found")
+#                         still_frames.append(middle_frame)
+#                     else:
+#                         print("Similar to last frame in still frames --- Discarded")
+#                 else:
+#                         print("Movement detected --- Discarded")
+#                 consecutive_stills = []
+#         prev_blurred_frame = blurred_frame
+#         for i in range(10):
+#             cap.read()
+#     cap.release()
+#     return still_frames
+
+def get_still_frames(video_path, threshold=1):
     """
     Extracts still frames from a video based on the similarity between consecutive frames.
     :param video_path: Path to the video file.
@@ -12,17 +58,17 @@ def get_still_frames(video_path, threshold=0.8):
     :param still_frames: A list of still frames (as numpy arrays).
     """
     cap = cv.VideoCapture(video_path)
-    prev_blurred_frame = None
+    prev_canny_frame = None
     still_frames = []
     consecutive_stills = []
     while True:
         ret, frame = cap.read()
         if not ret:
             break
-        blurred_frame = cv.GaussianBlur(frame, (15, 15), cv.BORDER_DEFAULT)
+        canny_frame = cv.Canny(frame, 100, 200)
         # cv.imshow('Current frame', frame)
-        if prev_blurred_frame is not None:
-            frame_diff = cv.absdiff(prev_blurred_frame, blurred_frame)
+        if prev_canny_frame is not None:
+            frame_diff = cv.absdiff(prev_canny_frame, canny_frame)
             frame_diff_score = np.mean(frame_diff)
             print(frame_diff_score)
             if frame_diff_score < threshold:
@@ -31,10 +77,10 @@ def get_still_frames(video_path, threshold=0.8):
             else:
                 if len(consecutive_stills) > 1:
                     middle_frame = consecutive_stills[len(consecutive_stills) // 2]
-                    blurred_middle_frame = cv.GaussianBlur(middle_frame, (15, 15), cv.BORDER_DEFAULT)
+                    canny_middle_frame = cv.Canny(middle_frame, 100, 200)
                     append = True
                     for i in range(1, min(len(still_frames), 5)):
-                        if still_frames and not (np.mean(cv.absdiff(cv.GaussianBlur(still_frames[-i], (5, 5), cv.BORDER_DEFAULT), blurred_middle_frame)) >= threshold):
+                        if still_frames and not (np.mean(cv.absdiff(cv.Canny(still_frames[-i], 100, 200), canny_middle_frame)) >= threshold):
                             append = False
                     if append:
                         print("New still frame found")
@@ -44,7 +90,7 @@ def get_still_frames(video_path, threshold=0.8):
                 else:
                         print("Movement detected --- Discarded")
                 consecutive_stills = []
-        prev_blurred_frame = blurred_frame
+        prev_canny_frame = canny_frame
         for i in range(10):
             cap.read()
     cap.release()

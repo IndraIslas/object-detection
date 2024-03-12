@@ -56,7 +56,7 @@ def resize_frame(frame, scale=0.5):
 #     cap.release()
 #     return still_frames
 
-def get_still_frames(video_path, threshold=5, similarity_threshold=1):
+def get_still_frames(video_path, threshold=3, similarity_threshold=10):
     """
     Extracts still frames from a video based on the similarity between consecutive frames.
     :param video_path: Path to the video file.
@@ -89,6 +89,7 @@ def get_still_frames(video_path, threshold=5, similarity_threshold=1):
                     dilated_canny_middle = cv.dilate(canny_middle_frame, (5, 5), iterations=3)
                     append = True
                     for i in range(1, min(len(still_frames), 5)):
+                        # The lower the similarity threshold is, the more frames will be appended to still frames
                         if still_frames and (np.mean(cv.absdiff(cv.dilate(cv.Canny(still_frames[-i], 100, 200), (5,5), iterations=3), dilated_canny_middle)) < similarity_threshold):
                             append = False
                     if append:

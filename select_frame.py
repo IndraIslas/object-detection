@@ -4,6 +4,12 @@ import numpy as np
 # Ask marlon if he wants a still frame each time a shape is introduced or once all the shapes are introduced before taking them out
 # Set high threshold and compare each still frame with the previous one to see if there was an actual change of there was movement in the video
 
+def resize_frame(frame, scale=0.5):
+    new_height = int(frame.shape[0] * scale)
+    new_width = int(frame.shape[1] * scale)
+    dimensions = (new_width, new_height)
+    return cv.resize(frame, dimensions, interpolation=cv.INTER_AREA)
+
 # def get_still_frames(video_path, threshold=0.8):
 #     """
 #     Extracts still frames from a video based on the similarity between consecutive frames.
@@ -50,7 +56,7 @@ import numpy as np
 #     cap.release()
 #     return still_frames
 
-def get_still_frames(video_path, threshold=1):
+def get_still_frames(video_path, threshold=5, similarity_threshold=1):
     """
     Extracts still frames from a video based on the similarity between consecutive frames.
     :param video_path: Path to the video file.
@@ -65,22 +71,25 @@ def get_still_frames(video_path, threshold=1):
         ret, frame = cap.read()
         if not ret:
             break
-        canny_frame = cv.Canny(frame, 100, 200)
+        resized_frame = resize_frame(frame, 0.25)
+        canny_frame = cv.Canny(resized_frame, 100, 200)
+        dilated_canny = cv.dilate(canny_frame, (5, 5), iterations=3)
         # cv.imshow('Current frame', frame)
         if prev_canny_frame is not None:
-            frame_diff = cv.absdiff(prev_canny_frame, canny_frame)
+            frame_diff = cv.absdiff(prev_canny_frame, dilated_canny)
             frame_diff_score = np.mean(frame_diff)
             print(frame_diff_score)
             if frame_diff_score < threshold:
-                consecutive_stills.append(frame)
+                consecutive_stills.append(resized_frame)
                 print("Frame added to consecutive stills")
             else:
                 if len(consecutive_stills) > 1:
                     middle_frame = consecutive_stills[len(consecutive_stills) // 2]
                     canny_middle_frame = cv.Canny(middle_frame, 100, 200)
+                    dilated_canny_middle = cv.dilate(canny_middle_frame, (5, 5), iterations=3)
                     append = True
                     for i in range(1, min(len(still_frames), 5)):
-                        if still_frames and not (np.mean(cv.absdiff(cv.Canny(still_frames[-i], 100, 200), canny_middle_frame)) >= threshold):
+                        if still_frames and (np.mean(cv.absdiff(cv.dilate(cv.Canny(still_frames[-i], 100, 200), (5,5), iterations=3), dilated_canny_middle)) < similarity_threshold):
                             append = False
                     if append:
                         print("New still frame found")
@@ -90,8 +99,8 @@ def get_still_frames(video_path, threshold=1):
                 else:
                         print("Movement detected --- Discarded")
                 consecutive_stills = []
-        prev_canny_frame = canny_frame
-        for i in range(10):
+        prev_canny_frame = dilated_canny
+        for i in range(7):
             cap.read()
     cap.release()
     return still_frames

@@ -10,58 +10,13 @@ def resize_frame(frame, scale=0.5):
     dimensions = (new_width, new_height)
     return cv.resize(frame, dimensions, interpolation=cv.INTER_AREA)
 
-# def get_still_frames(video_path, threshold=0.8):
-#     """
-#     Extracts still frames from a video based on the similarity between consecutive frames.
-#     :param video_path: Path to the video file.
-#     :param threshold: Difference threshold to consider a frame as still. Lower values mean more similarity is required.
-#     :param still_frames: A list of still frames (as numpy arrays).
-#     """
-#     cap = cv.VideoCapture(video_path)
-#     prev_blurred_frame = None
-#     still_frames = []
-#     consecutive_stills = []
-#     while True:
-#         ret, frame = cap.read()
-#         if not ret:
-#             break
-#         blurred_frame = cv.GaussianBlur(frame, (15, 15), cv.BORDER_DEFAULT)
-#         # cv.imshow('Current frame', frame)
-#         if prev_blurred_frame is not None:
-#             frame_diff = cv.absdiff(prev_blurred_frame, blurred_frame)
-#             frame_diff_score = np.mean(frame_diff)
-#             print(frame_diff_score)
-#             if frame_diff_score < threshold:
-#                 consecutive_stills.append(frame)
-#                 print("Frame added to consecutive stills")
-#             else:
-#                 if len(consecutive_stills) > 1:
-#                     middle_frame = consecutive_stills[len(consecutive_stills) // 2]
-#                     blurred_middle_frame = cv.GaussianBlur(middle_frame, (15, 15), cv.BORDER_DEFAULT)
-#                     append = True
-#                     for i in range(1, min(len(still_frames), 5)):
-#                         if still_frames and not (np.mean(cv.absdiff(cv.GaussianBlur(still_frames[-i], (5, 5), cv.BORDER_DEFAULT), blurred_middle_frame)) >= threshold):
-#                             append = False
-#                     if append:
-#                         print("New still frame found")
-#                         still_frames.append(middle_frame)
-#                     else:
-#                         print("Similar to last frame in still frames --- Discarded")
-#                 else:
-#                         print("Movement detected --- Discarded")
-#                 consecutive_stills = []
-#         prev_blurred_frame = blurred_frame
-#         for i in range(10):
-#             cap.read()
-#     cap.release()
-#     return still_frames
-
 def get_still_frames(video_path, threshold=3, similarity_threshold=10):
     """
     Extracts still frames from a video based on the similarity between consecutive frames.
     :param video_path: Path to the video file.
-    :param threshold: Difference threshold to consider a frame as still. Lower values mean more similarity is required.
+    :param threshold: Difference threshold to consider a frame as still. Lower values means LESS frames will be appended to consecutive stills list.
     :param still_frames: A list of still frames (as numpy arrays).
+    :param similarity_threshold: Difference threshold to compare a potential still frame with the last still frame added. Higher values means LESS frames will be appended to still frames list.
     """
     cap = cv.VideoCapture(video_path)
     prev_canny_frame = None
@@ -76,25 +31,27 @@ def get_still_frames(video_path, threshold=3, similarity_threshold=10):
         dilated_canny = cv.dilate(canny_frame, (5, 5), iterations=3)
         # cv.imshow('Current frame', frame)
         if prev_canny_frame is not None:
-            frame_diff = cv.absdiff(prev_canny_frame, dilated_canny)
-            frame_diff_score = np.mean(frame_diff)
+            frame_diff_score = np.mean(cv.absdiff(prev_canny_frame, dilated_canny))
             print(frame_diff_score)
             if frame_diff_score < threshold:
-                consecutive_stills.append(resized_frame)
+                consecutive_stills.append(frame)
                 print("Frame added to consecutive stills")
             else:
                 if len(consecutive_stills) > 1:
                     middle_frame = consecutive_stills[len(consecutive_stills) // 2]
-                    canny_middle_frame = cv.Canny(middle_frame, 100, 200)
+                    resized_middle_frame = resize_frame(middle_frame, 0.25)
+                    canny_middle_frame = cv.Canny(resized_middle_frame, 100, 200)
                     dilated_canny_middle = cv.dilate(canny_middle_frame, (5, 5), iterations=3)
                     append = True
                     for i in range(1, min(len(still_frames), 5)):
                         # The lower the similarity threshold is, the more frames will be appended to still frames
-                        if still_frames and (np.mean(cv.absdiff(cv.dilate(cv.Canny(still_frames[-i], 100, 200), (5,5), iterations=3), dilated_canny_middle)) < similarity_threshold):
+                        still_middle_diff_score = np.mean(cv.absdiff(dilated_canny_last_still, dilated_canny_middle))
+                        if still_frames and (still_middle_diff_score < similarity_threshold):
                             append = False
                     if append:
                         print("New still frame found")
                         still_frames.append(middle_frame)
+                        dilated_canny_last_still = dilated_canny_middle
                     else:
                         print("Similar to last frame in still frames --- Discarded")
                 else:
@@ -106,10 +63,31 @@ def get_still_frames(video_path, threshold=3, similarity_threshold=10):
     cap.release()
     return still_frames
 
+from PIL import Image
+import numpy as np
+import cv2 as cv
+
+def save_pdf(still_frames, save_path):
+    """
+    Saves the given frames as a single PDF file.
+    :param still_frames: A list of still frames (as numpy arrays).
+    :param save_path: The path to save the PDF file to.
+    """
+    # Convert NumPy arrays to PIL images
+    pil_images = [Image.fromarray(cv.cvtColor(frame, cv.COLOR_BGR2RGB)) for frame in still_frames]
+    # Optionally resize images for consistency and to reduce PDF size
+    resized_images = []
+    for img in pil_images:
+        img.thumbnail((1500, 1000), Image.ANTIALIAS)
+        resized_images.append(img)
+    # Save the first image and append the rest to a PDF file
+    if resized_images:
+        resized_images[0].save(save_path, "PDF", resolution=100.0, save_all=True, append_images=resized_images[1:])
 
 def main():
     video_path = 'Videos/video1.mov'
     still_frames = get_still_frames(video_path)
+    save_pdf(still_frames, 'still_frames3.pdf')
     print(still_frames)
     print("Returned still frames")
     for i, frame in enumerate(still_frames):

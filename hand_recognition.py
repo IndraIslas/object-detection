@@ -1,8 +1,6 @@
 import cv2 as cv
 import mediapipe as mp
-import math
 import numpy as np
-import threading
 
 # IDEAS: make this a function and return: 
 # a list of tuples with the coordinates of the detected hands;

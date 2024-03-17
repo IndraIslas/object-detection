@@ -1,8 +1,7 @@
 import cv2 as cv
 import numpy as np
-
-# Ask marlon if he wants a still frame each time a shape is introduced or once all the shapes are introduced before taking them out
-# Set high threshold and compare each still frame with the previous one to see if there was an actual change of there was movement in the video
+from PIL import Image
+import mediapipe as mp
 
 def resize_frame(frame, scale=0.5):
     new_height = int(frame.shape[0] * scale)
@@ -10,7 +9,49 @@ def resize_frame(frame, scale=0.5):
     dimensions = (new_width, new_height)
     return cv.resize(frame, dimensions, interpolation=cv.INTER_AREA)
 
-def get_still_frames(video_path, threshold=3, similarity_threshold=10):
+def detect_hands(frame):
+    mp_hands = mp.solutions.hands
+    mp_drawing = mp.solutions.drawing_utils
+    mp_drawing_styles = mp.solutions.drawing_styles
+    # Run MediaPipe Hands.
+    with mp_hands.Hands(static_image_mode=True, max_num_hands=2, min_detection_confidence=0.7) as hands:
+        # Convert the BGR frame to RGB and flip the frame around y-axis for correct handedness output 
+        flipped_frame_rgb = cv.flip(cv.cvtColor(frame, cv.COLOR_BGR2RGB), 1)
+        # Process the frame with MediaPipe Hands.
+        results = hands.process(flipped_frame_rgb)
+        # Draw hand landmarks of each hand.
+        frame_height, frame_width, _ = frame.shape
+        detected_image = cv.flip(frame.copy(), 1)
+        hands_detected = False
+        hand_landmarks_list = []
+        if results.multi_hand_landmarks:
+            hands_detected = True
+            # Print handedness (left v.s. right hand).
+            print(f'Handedness: {results.multi_handedness}')
+            # Select a single hand (hand_landmarks) from the list of all hands (results.multi_hand_landmarks)
+            for hand_landmarks in results.multi_hand_landmarks:
+                # Print index finger tip coordinates.
+                print(f'Index finger tip coordinate: (',f'{hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].x * frame_width}, 'f'{hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP].y * frame_height})')
+                mp_drawing.draw_landmarks(
+                    detected_image,
+                    hand_landmarks,
+                    mp_hands.HAND_CONNECTIONS,
+                    mp_drawing_styles.get_default_hand_landmarks_style(),
+                    mp_drawing_styles.get_default_hand_connections_style())
+                # hand_landmarks is a class of Mediapipe of all landmarks of a single hand where each landmark is a tuple with the x and y coordinates of that part of the hand.
+                landmarks = [(int(landmark.x * frame_width), int(landmark.y * frame_height)) for landmark in hand_landmarks.landmark]
+                # The hand_landmarks_list is a list of lists where the inner list contain the landmarks of a single hand as tuples with the x and y coordinates of that part of the hand.
+                hand_landmarks_list.append(landmarks)
+                # hand_landmarks is a list of all landmarks of a single hand where each landmark is a tuple with the x and y coordinates of that part of the hand.
+                landmarks = [(int(landmark.x * frame_width), int(landmark.y * frame_height)) for landmark in hand_landmarks.landmark]
+                hull = cv.convexHull(np.array(landmarks, dtype=np.int32))
+                cv.drawContours(detected_image, [hull], -1, (0, 255, 0), 2)
+            return detected_image, hands_detected, hand_landmarks_list
+        else:
+            print("No hands were found")
+            return detected_image, hands_detected, hand_landmarks_list
+
+def get_still_frames(video_path, threshold=3, similarity_threshold=10, include_hands=False):
     """
     Extracts still frames from a video based on the similarity between consecutive frames.
     :param video_path: Path to the video file.
@@ -18,6 +59,7 @@ def get_still_frames(video_path, threshold=3, similarity_threshold=10):
     :param still_frames: A list of still frames (as numpy arrays).
     :param similarity_threshold: Difference threshold to compare a potential still frame with the last still frame added. Higher values means LESS frames will be appended to still frames list.
     """
+    print(video_path, threshold, similarity_threshold, include_hands)
     cap = cv.VideoCapture(video_path)
     prev_canny_frame = None
     still_frames = []
@@ -49,9 +91,16 @@ def get_still_frames(video_path, threshold=3, similarity_threshold=10):
                         if still_frames and (still_middle_diff_score < similarity_threshold):
                             append = False
                     if append:
-                        print("New still frame found")
-                        still_frames.append(middle_frame)
-                        dilated_canny_last_still = dilated_canny_middle
+                        if include_hands:
+                            print("New still frame found")
+                            still_frames.append(middle_frame)
+                            dilated_canny_last_still = dilated_canny_middle
+                        else:
+                            _, hands_detected, _ = detect_hands(middle_frame)
+                            if not hands_detected:
+                                print("New still frame found")
+                                still_frames.append(middle_frame)
+                                dilated_canny_last_still = dilated_canny_middle
                     else:
                         print("Similar to last frame in still frames --- Discarded")
                 else:
@@ -62,10 +111,6 @@ def get_still_frames(video_path, threshold=3, similarity_threshold=10):
             cap.read()
     cap.release()
     return still_frames
-
-from PIL import Image
-import numpy as np
-import cv2 as cv
 
 def save_pdf(still_frames, save_path):
     """
@@ -85,14 +130,15 @@ def save_pdf(still_frames, save_path):
         resized_images[0].save(save_path, "PDF", resolution=100.0, save_all=True, append_images=resized_images[1:])
 
 def main():
-    video_path = 'Videos/video1.mov'
-    still_frames = get_still_frames(video_path)
-    save_pdf(still_frames, 'still_frames3.pdf')
-    print(still_frames)
-    print("Returned still frames")
-    for i, frame in enumerate(still_frames):
-        cv.imshow(f'Still Frame {i}', frame)
-    cv.waitKey(0)
+    video_path = 'Videos/video2.mov'
+    include_hands=False
+    still_frames = get_still_frames(video_path, threshold=10, similarity_threshold=25, include_hands=include_hands)
+    save_pdf(still_frames, f'still_frames_{include_hands}_3.pdf')
+    # print(still_frames)
+    print("PDF SAVED --------------------")
+    # for i, frame in enumerate(still_frames):
+    #     cv.imshow(f'Still Frame {i}', frame)
+    # cv.waitKey(0)
 
 if __name__ == '__main__':
     main()

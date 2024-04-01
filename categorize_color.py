@@ -87,8 +87,8 @@ if __name__ == '__main__':
     img = cv.imread(img_path)
     cv.imshow('Original Image', img)
     cv.waitKey(0)
-    target_colors_path = 'target_colors.txt'
-    bg_color_path = 'bg_color.txt'
+    target_colors_path = 'Colors/target_colors.txt'
+    bg_color_path = 'Colors/bg_color.txt'
     color_dict = load_color_dict(input_path)
     detect_colors(img_path, color_dict, target_colors_path, bg_color_path)
     bg_color = get_bg_color(img_path, color_dict)

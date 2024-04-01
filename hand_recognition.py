@@ -156,7 +156,6 @@ if __name__ == '__main__':
     # main()
     img = cv.imread('Pictures/twohands.png')
     cv.imshow('Original', img)
-    paint_frame_except_hands(img)
 
 
 

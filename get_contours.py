@@ -176,7 +176,7 @@ def parse_color_set(target_colors_path):
 #     return merged_colors
 
 def main():
-    video = cv.VideoCapture('Videos/video1.mov')
+    video = cv.VideoCapture(0)
     color_set_path = 'Colors/target-colors.txt'
     isTrue, frame = video.read()  # Read once to get the frame size
     if not isTrue:
@@ -199,9 +199,10 @@ def main():
         hands_image = cv.flip(hands_image, 1)
         hand_mask = generate_hands_mask(frame, hands_landmarks_list)
         # target_colors = [[99, 166, 229], [ 95, 80, 202],[170, 98, 222],[ 87, 79, 180],[145,  70, 182],[147,  88, 119], [237,120,120], [93,164,234], [62,214,214], [96,181,224], [239,162,200]]
-        target_colors = parse_color_set(color_set_path)
+        target_colors = [[64, 126, 160], [128, 106, 122], [110, 145, 145], [140, 133, 98]]
+        # target_colors = parse_color_set(color_set_path)
         # target_colors = merge_colors(color_set, n_clusters=10)
-        binary_image = multi_color_threshold_mask(frame, target_colors, 40, 200, hand_mask)
+        binary_image = multi_color_threshold_mask(frame, target_colors, 30, 30, hand_mask, ignore_colors=[[119, 121, 116], [255,255,255]])
         # binary_image = multi_color_threshold_mask(frame, target_colors, 40)
         cnts = get_contours(hands_image, binary_image)
         # cnts = get_contours(frame, binary_image)

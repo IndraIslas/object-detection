@@ -5,6 +5,7 @@ from PIL import Image
 import mediapipe as mp
 from collections import Counter
 from sklearn.cluster import KMeans
+import json
 
 # import numpy as np
 # import cv2 as cv
@@ -168,27 +169,27 @@ from sklearn.cluster import KMeans
 #     print('DONE --------------------')
     
 
-def load_color_dictionary(filename):
-    color_dict = {}
-    with open(filename, 'r') as file:
-        for line in file.readlines():
-            parts = line.split(':')
-            bgr_str = parts[0].strip('()')
-            bgr = tuple(map(int, bgr_str.split(',')))
-            color_name = parts[1].strip()
-            color_dict[bgr] = color_name
-    return color_dict
+# def load_color_dictionary(filename):
+#     color_dict = {}
+#     with open(filename, 'r') as file:
+#         for line in file.readlines():
+#             parts = line.split(':')
+#             bgr_str = parts[0].strip('()')
+#             bgr = tuple(map(int, bgr_str.split(',')))
+#             color_name = parts[1].strip()
+#             color_dict[bgr] = color_name
+#     return color_dict
 
-def show_color(color_dict):
-    for bgr, color_name in color_dict.items():
-        color_img = np.full((250, 250, 3), bgr, dtype='uint8')
-        cv.imshow(color_name, color_img)
-        cv.waitKey(0)
+# def show_color(color_dict):
+#     for bgr, color_name in color_dict.items():
+#         color_img = np.full((250, 250, 3), bgr, dtype='uint8')
+#         cv.imshow(color_name, color_img)
+#         cv.waitKey(0)
 
-if __name__ == '__main__':
-    bgr = (78, 45, 230)
-    color_dict = load_color_dictionary('bgr_color_dictionary.txt')
-    show_color(color_dict)
+# if __name__ == '__main__':
+#     bgr = (78, 45, 230)
+#     color_dict = load_color_dictionary('bgr_color_dictionary.txt')
+#     show_color(color_dict)
 
 
 # def load_color_dictionary(filename):
@@ -235,3 +236,40 @@ if __name__ == '__main__':
 #     cv.imshow(f'{closest_bgr}: {closest_bgr_name}', closest_bgr_img)
 #     cv.waitKey(0)
 
+
+
+
+def load_color_dict(input_path):
+    with open(input_path, 'r') as file:
+        color_dict = json.load(file)
+    return color_dict
+
+def categorize_color(bgr, color_dict):
+    ranges = [(0, 63), (63, 126), (126, 189), (189, 252)]
+    closest_bgr = []
+    for c in bgr:
+        for r in ranges:
+            if r[0] <= c <= r[1]:
+                closest_bgr.append(r[0])
+                break
+    closest_bgr = tuple(closest_bgr)
+    key_name = str(closest_bgr)
+    color_bgr = color_dict[key_name]["BGR"]
+    color_name = color_dict[key_name]["Name"]
+    print(f'The closest color found is {color_name} with value {color_bgr}')
+    return color_name, color_bgr
+
+def show_color(bgr, color_name, color_bgr):
+    original_img = np.full((400, 400, 3), bgr, dtype='uint8')
+    cv.imshow(f'Passed Color: {bgr}', original_img)
+    cv.waitKey(0)
+    closest_img = np.full((400, 400, 3), color_bgr, dtype='uint8')
+    cv.imshow(f'{color_name}: {color_bgr}', closest_img)
+    cv.waitKey(0)
+    
+if __name__ == '__main__':
+    bgr = (142,22,1)
+    input_path = 'Dictionaries/bgr_by_key_colors.json'
+    color_dict = load_color_dict(input_path)
+    color_name, color_bgr = categorize_color(bgr, color_dict)
+    show_color(bgr, color_name, color_bgr)
